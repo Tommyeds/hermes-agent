@@ -490,13 +490,18 @@ class FactRetriever:
         Uses the store's database connection directly for FTS5 MATCH
         with rank scoring. Normalizes FTS5 rank to [0, 1] range.
         """
+        import re as _re
         conn = self.store._conn
+
+        # Sanitize query for FTS5: strip metacharacters, expand multi-word to OR
+        _fts_safe = _re.sub(r'[.\-:\/"]', ' ', query)
+        _fts_tokens = _fts_safe.split()
+        fts_query = ' OR '.join(_fts_tokens) if len(_fts_tokens) > 1 else _fts_safe
 
         # Build query - FTS5 rank is negative (lower = better match)
         # We need to join facts_fts with facts to get all columns
-        params: list = []
+        params: list = [fts_query]
         where_clauses = ["facts_fts MATCH ?"]
-        params.append(query)
 
         if category:
             where_clauses.append("f.category = ?")

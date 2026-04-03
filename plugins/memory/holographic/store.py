@@ -185,6 +185,25 @@ class MemoryStore:
 
             return fact_id
 
+    @staticmethod
+    def _sanitize_fts5_query(query: str) -> str:
+        """Normalize a user query for FTS5 MATCH.
+
+        FTS5 defaults to phrase matching for multi-word queries (requires
+        adjacent tokens), which returns zero results for natural language
+        like "alchemy archetype". This expands multi-word queries to OR
+        mode so each token matches independently. Also strips FTS5-unsafe
+        punctuation (dots in domains, slashes in paths) that cause syntax
+        errors.
+        """
+        # Remove FTS5 metacharacters that cause syntax errors
+        cleaned = re.sub(r'[\.\-\:\/\"]', ' ', query)
+        tokens = cleaned.split()
+        if len(tokens) > 1:
+            # OR expansion: match any token, not just adjacent phrases
+            return ' OR '.join(tokens)
+        return cleaned.strip()
+
     def search_facts(
         self,
         query: str,
@@ -198,7 +217,7 @@ class MemoryStore:
         descending. Also increments retrieval_count for matched facts.
         """
         with self._lock:
-            query = query.strip()
+            query = self._sanitize_fts5_query(query)
             if not query:
                 return []
 
