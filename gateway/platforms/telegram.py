@@ -1834,11 +1834,19 @@ class TelegramAdapter(BasePlatformAdapter):
                 file_obj = await doc.get_file()
                 doc_bytes = await file_obj.download_as_bytearray()
                 raw_bytes = bytes(doc_bytes)
-                cached_path = cache_document_from_bytes(raw_bytes, original_filename or f"document{ext}")
+
+                # Route image types to image cache (for vision tool access)
+                _IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
+                if ext in _IMAGE_EXTS:
+                    cached_path = cache_image_from_bytes(raw_bytes, ext=ext)
+                    logger.info("[Telegram] Cached user image document at %s", cached_path)
+                else:
+                    cached_path = cache_document_from_bytes(raw_bytes, original_filename or f"document{ext}")
+                    logger.info("[Telegram] Cached user document at %s", cached_path)
+
                 mime_type = SUPPORTED_DOCUMENT_TYPES[ext]
                 event.media_urls = [cached_path]
                 event.media_types = [mime_type]
-                logger.info("[Telegram] Cached user document at %s", cached_path)
 
                 # For text files, inject content into event.text (capped at 100 KB)
                 MAX_TEXT_INJECT_BYTES = 100 * 1024
